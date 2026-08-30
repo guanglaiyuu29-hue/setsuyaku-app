@@ -29,7 +29,6 @@ type PriceRow = {
   price: number
   unit: string
   checked_at: string
-  created_at: string
   source: string
 }
 
@@ -68,7 +67,10 @@ export async function getStores(): Promise<Store[]> {
     .select('id, name, walk_minutes, bike_minutes, note')
     .order('id')
 
-  if (error) throw new Error(`店舗データの取得に失敗しました: ${error.message}`)
+  if (error) {
+    console.warn('店舗データの取得に失敗しました:', error.message)
+    return []
+  }
 
   return ((data as StoreRow[] | null) ?? []).map(toStore)
 }
@@ -86,12 +88,15 @@ export async function getStores(): Promise<Store[]> {
 export async function getPricesByItem(itemName: string): Promise<Price[]> {
   const { data, error } = await supabase
     .from('prices')
-    .select('id, item_name, store_id, price, unit, checked_at, created_at, source')
+    .select('id, item_name, store_id, price, unit, checked_at, source')
     .eq('item_name', itemName)
     .order('checked_at', { ascending: false })
-    .order('created_at', { ascending: false })
 
-  if (error) throw new Error(`価格データの取得に失敗しました: ${error.message}`)
+  if (error) {
+    // 画面を「読み込み中…」で固めないよう、失敗しても空配列を返す
+    console.warn('価格データの取得に失敗しました:', error.message)
+    return []
+  }
 
   const rows = (data as PriceRow[] | null) ?? []
 
@@ -115,7 +120,10 @@ export async function getAllItemNames(): Promise<string[]> {
     .select('item_name')
     .order('id')
 
-  if (error) throw new Error(`食材名の取得に失敗しました: ${error.message}`)
+  if (error) {
+    console.warn('食材名の取得に失敗しました:', error.message)
+    return []
+  }
 
   const rows = (data as { item_name: string }[] | null) ?? []
   const seen = new Set<string>()
@@ -147,7 +155,10 @@ export async function getKnownItems(): Promise<KnownItem[]> {
     .select('item_name, unit, checked_at')
     .order('checked_at', { ascending: false })
 
-  if (error) throw new Error(`商品名リストの取得に失敗しました: ${error.message}`)
+  if (error) {
+    console.warn('商品名リストの取得に失敗しました:', error.message)
+    return []
+  }
 
   const rows = (data as { item_name: string; unit: string }[] | null) ?? []
   const unitByName = new Map<string, string>()

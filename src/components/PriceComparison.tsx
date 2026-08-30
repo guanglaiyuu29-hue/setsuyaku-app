@@ -175,9 +175,14 @@ export function PriceComparison({ itemName, stores, referencePrice }: Props) {
 
   useEffect(() => {
     let isCurrent = true
-    getPricesByItem(itemName).then((result) => {
-      if (isCurrent) setLoaded({ itemName, prices: result })
-    })
+    getPricesByItem(itemName)
+      .then((result) => {
+        if (isCurrent) setLoaded({ itemName, prices: result })
+      })
+      .catch(() => {
+        // 失敗時も「読み込み中…」で固まらないよう空扱いにする
+        if (isCurrent) setLoaded({ itemName, prices: [] })
+      })
     return () => {
       isCurrent = false
     }
