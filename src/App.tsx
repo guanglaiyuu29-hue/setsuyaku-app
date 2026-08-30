@@ -4,11 +4,10 @@
 // 状態に応じて表示を切り替える。
 // データ取得は src/lib/dataSource.ts、ログインまわりは src/lib/auth.ts 経由。
 
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { AuthScreen } from './components/AuthScreen'
 import { BottomTabBar, type TabKey } from './components/BottomTabBar'
 import { ItemNameList } from './components/ItemNameList'
-import { MapView } from './components/MapView'
 import { PriceComparison } from './components/PriceComparison'
 import { ReceiptForm } from './components/ReceiptForm'
 import type { SubmittedSummary } from './components/ReceiptForm'
@@ -28,6 +27,15 @@ import {
 } from './lib/dataSource'
 import type { Store, TransportMode } from './types'
 
+// マップ・グラフは地図/チャートのライブラリが重いので、
+// そのタブを開いたときだけ読み込む（初期表示を軽くする）。
+const MapView = lazy(() =>
+  import('./components/MapView').then((m) => ({ default: m.MapView })),
+)
+const GraphView = lazy(() =>
+  import('./components/GraphView').then((m) => ({ default: m.GraphView })),
+)
+
 // 表示する画面の種類。
 // 'main' = 価格くらべ（ログインしていなくても見られる）
 type Screen = 'main' | 'login' | 'signup' | 'receipt' | 'receipt-done'
@@ -35,18 +43,6 @@ type Screen = 'main' | 'login' | 'signup' | 'receipt' | 'receipt-done'
 /** 重複を除いて順序を保つ */
 function unique(values: string[]): string[] {
   return [...new Set(values)]
-}
-
-/** マップ・グラフタブの中身はまだ無いので、準備中の案内だけ出す */
-function ComingSoon({ title }: { title: string }) {
-  return (
-    <div className="mt-10 rounded-2xl border border-dashed border-gray-300 p-8 text-center">
-      <p className="text-lg font-bold text-gray-700">{title}は準備中です</p>
-      <p className="mt-2 text-sm leading-relaxed text-gray-500">
-        近日公開予定です。いまは「価格比較」タブをご利用ください。
-      </p>
-    </div>
-  )
 }
 
 function App() {
@@ -241,7 +237,16 @@ function App() {
 
     // screen === 'main' → 下部タブに応じて切り替え
     if (tab === 'map') return <MapView stores={stores} />
-    if (tab === 'graph') return <ComingSoon title="グラフ" />
+    if (tab === 'graph') {
+      return (
+        <GraphView
+          itemName={exactItem ?? null}
+          stores={stores}
+          itemNames={itemNames}
+          onPickItem={setQuery}
+        />
+      )
+    }
     return renderMainSearch()
   }
 
@@ -280,7 +285,15 @@ function App() {
           </div>
         </header>
 
-        {renderBody()}
+        <Suspense
+          fallback={
+            <p className="mt-10 text-center text-sm text-gray-500">
+              読み込み中…
+            </p>
+          }
+        >
+          {renderBody()}
+        </Suspense>
 
         <footer className="mt-10 border-t border-gray-100 pt-4">
           <p className="text-xs leading-relaxed text-gray-400">
