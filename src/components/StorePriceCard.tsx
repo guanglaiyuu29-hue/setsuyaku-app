@@ -65,6 +65,11 @@ export function StorePriceCard({
                 レシート投稿
               </span>
             )}
+            {source === 'sample' && (
+              <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+                サンプルデータ
+              </span>
+            )}
           </div>
           <p className="mt-1 text-sm text-gray-500">
             徒歩{store.walkMinutes}分 ・ 自転車{store.bikeMinutes}分

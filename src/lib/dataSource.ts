@@ -10,7 +10,7 @@
 //   その変換（詰め替え）を、この層の toStore() / toPrice() で行います。
 // ============================================================
 
-import type { Price, Store } from '../types'
+import type { Price, PriceSource, Store } from '../types'
 import { supabase } from './supabase'
 
 // --- Supabase から返ってくる「1行」の形（列名は snake_case） ---
@@ -44,6 +44,11 @@ function toStore(row: StoreRow): Store {
   }
 }
 
+function toPriceSource(raw: string): PriceSource {
+  if (raw === 'receipt' || raw === 'sample') return raw
+  return 'official'
+}
+
 function toPrice(row: PriceRow): Price {
   return {
     id: String(row.id),
@@ -52,7 +57,7 @@ function toPrice(row: PriceRow): Price {
     price: row.price,
     unit: row.unit,
     checkedAt: row.checked_at,
-    source: row.source === 'receipt' ? 'receipt' : 'official',
+    source: toPriceSource(row.source),
   }
 }
 

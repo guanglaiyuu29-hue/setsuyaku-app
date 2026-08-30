@@ -32,7 +32,8 @@ create table if not exists public.prices (
   unit        text not null,                                    -- 単位・内容量（"10個入り1パック" など）
   checked_at  date not null,                                    -- 価格を確認した日
   source      text not null default 'official'
-                check (source in ('official', 'receipt')),      -- 出所：official=運営調査 / receipt=レシート投稿
+                constraint prices_source_check
+                check (source in ('official', 'receipt', 'sample')), -- official=運営調査 / receipt=レシート投稿 / sample=動作確認用の仮データ
   created_at         timestamptz not null default now(),               -- この行が登録された日時（自動）
   user_id            uuid references auth.users(id) on delete set null, -- 投稿者。運営データは null
   receipt_image_path text                                                -- レシート画像の保存先（Storage内のパス）。運営データは null

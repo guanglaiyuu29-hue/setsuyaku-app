@@ -22,10 +22,10 @@ export interface Store {
 /**
  * 価格データの出所。
  * - "official" : 運営（このアプリの管理者）が実際に店で調べた価格
- * - "receipt"  : 将来、ユーザーがレシートを投稿して登録された価格
- * 今はすべて "official"。レシート投稿機能が始まったら "receipt" が混ざる。
+ * - "receipt"  : ユーザーがレシートを投稿して登録された価格
+ * - "sample"   : 動作確認用の仮の価格（実測ではない）。画面に「サンプルデータ」と表示する
  */
-export type PriceSource = 'official' | 'receipt'
+export type PriceSource = 'official' | 'receipt' | 'sample'
 
 /** 1つの食材の、1店舗での価格 */
 export interface Price {

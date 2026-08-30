@@ -126,6 +126,7 @@ function StorePrices({
   const sorted = [...prices].sort((a, b) => a.price - b.price)
   const cheapestPrice = sorted[0].price
   const cheapestIsStale = isPriceStale(sorted[0].checkedAt)
+  const hasSample = sorted.some((price) => price.source === 'sample')
 
   return (
     <div>
@@ -159,6 +160,12 @@ function StorePrices({
           )
         })}
       </ul>
+
+      {hasSample && (
+        <p className="mt-2 text-xs text-gray-400">
+          ※「サンプルデータ」は動作確認用の仮の価格です。実際の店頭価格ではありません。
+        </p>
+      )}
     </div>
   )
 }
