@@ -27,6 +27,14 @@ export interface Store {
  */
 export type PriceSource = 'official' | 'receipt' | 'sample'
 
+/**
+ * 家から店までの移動手段。
+ * - "walk" : 徒歩
+ * - "bike" : 自転車
+ * 画面の「移動手段を選択」トグルで切り替え、各カードの所要時間表示に反映する。
+ */
+export type TransportMode = 'walk' | 'bike'
+
 /** 1つの食材の、1店舗での価格 */
 export interface Price {
   /** 価格レコードのID（1件ごとに重複しない文字列。将来はDBが自動採番する） */

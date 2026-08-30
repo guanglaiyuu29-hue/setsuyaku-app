@@ -1,10 +1,12 @@
 // アプリの中心画面。
 // 「今なにを検索しているか（query）」「食材名・店舗・参考価格の一覧」
-// 「今どの画面を出しているか（screen）」を持ち、状態に応じて表示を切り替える。
+// 「今どの画面を出しているか（screen）」「下部タブ（tab）」「移動手段（transport）」を持ち、
+// 状態に応じて表示を切り替える。
 // データ取得は src/lib/dataSource.ts、ログインまわりは src/lib/auth.ts 経由。
 
 import { useEffect, useState } from 'react'
 import { AuthScreen } from './components/AuthScreen'
+import { BottomTabBar, type TabKey } from './components/BottomTabBar'
 import { ItemNameList } from './components/ItemNameList'
 import { PriceComparison } from './components/PriceComparison'
 import { ReceiptForm } from './components/ReceiptForm'
@@ -12,6 +14,7 @@ import type { SubmittedSummary } from './components/ReceiptForm'
 import { ReceiptThanks } from './components/ReceiptThanks'
 import { ReferencePriceList } from './components/ReferencePriceList'
 import { SearchBox } from './components/SearchBox'
+import { TransportToggle } from './components/TransportToggle'
 import { useAuth } from './context/auth-context'
 import { signOut } from './lib/auth'
 import {
@@ -22,7 +25,7 @@ import {
   type KnownItem,
   type ReferencePrice,
 } from './lib/dataSource'
-import type { Store } from './types'
+import type { Store, TransportMode } from './types'
 
 // 表示する画面の種類。
 // 'main' = 価格くらべ（ログインしていなくても見られる）
@@ -33,11 +36,25 @@ function unique(values: string[]): string[] {
   return [...new Set(values)]
 }
 
+/** マップ・グラフタブの中身はまだ無いので、準備中の案内だけ出す */
+function ComingSoon({ title }: { title: string }) {
+  return (
+    <div className="mt-10 rounded-2xl border border-dashed border-gray-300 p-8 text-center">
+      <p className="text-lg font-bold text-gray-700">{title}は準備中です</p>
+      <p className="mt-2 text-sm leading-relaxed text-gray-500">
+        近日公開予定です。いまは「価格比較」タブをご利用ください。
+      </p>
+    </div>
+  )
+}
+
 function App() {
   // ログイン状態（アプリ全体で共有。AuthProvider が管理）
   const { user, loading: authLoading } = useAuth()
 
   const [screen, setScreen] = useState<Screen>('main')
+  const [tab, setTab] = useState<TabKey>('compare')
+  const [transport, setTransport] = useState<TransportMode>('walk')
   const [query, setQuery] = useState('')
   // prices テーブルに実売価格がある食材名
   const [itemNames, setItemNames] = useState<string[]>([])
@@ -89,6 +106,7 @@ function App() {
   function goToItem(itemName: string) {
     setQuery(itemName)
     setScreen('main')
+    setTab('compare')
   }
 
   function renderMainSearch() {
@@ -96,7 +114,11 @@ function App() {
       <>
         <SearchBox value={query} onChange={setQuery} />
 
-        <div className="mt-6">
+        <div className="mt-4">
+          <TransportToggle value={transport} onChange={setTransport} />
+        </div>
+
+        <div className="mt-5">
           {/* 1. 入力が空 → 参考価格の一覧を表示 */}
           {keyword === '' && (
             <ReferencePriceList items={referencePrices} onSelect={setQuery} />
@@ -107,6 +129,7 @@ function App() {
             <PriceComparison
               itemName={exactItem}
               stores={stores}
+              transport={transport}
               referencePrice={referenceByName.get(exactItem) ?? null}
             />
           )}
@@ -215,46 +238,44 @@ function App() {
       )
     }
 
+    // screen === 'main' → 下部タブに応じて切り替え
+    if (tab === 'map') return <ComingSoon title="マップ" />
+    if (tab === 'graph') return <ComingSoon title="グラフ" />
     return renderMainSearch()
   }
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="mx-auto min-h-screen max-w-md bg-white px-4 pb-16 text-gray-900">
-        <header className="py-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-bold">食材価格くらべ</h1>
-              <p className="mt-1 text-sm text-gray-500">
-                京都・一人暮らしの食材価格メモ（ベータ版）
-              </p>
-            </div>
+      <div className="mx-auto min-h-screen max-w-md bg-white px-4 pb-24 text-gray-900">
+        <header className="relative flex items-center justify-center py-4">
+          <h1 className="text-xl font-extrabold tracking-tight text-emerald-600">
+            食材価格くらべ
+          </h1>
 
-            {/* アカウント欄：目立たないよう小さく右上に置く */}
-            <div className="shrink-0 pt-1 text-right">
-              {authLoading ? null : user ? (
-                <>
-                  <p className="max-w-[128px] truncate text-xs text-gray-400">
-                    {user.email}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="text-xs text-gray-500 underline active:text-gray-900"
-                  >
-                    ログアウト
-                  </button>
-                </>
-              ) : (
+          {/* アカウント欄：目立たないよう小さく右上に置く */}
+          <div className="absolute right-0 top-1/2 max-w-[38%] -translate-y-1/2 text-right">
+            {authLoading ? null : user ? (
+              <>
+                <p className="truncate text-[10px] leading-tight text-gray-400">
+                  {user.email}
+                </p>
                 <button
                   type="button"
-                  onClick={() => setScreen('login')}
+                  onClick={handleLogout}
                   className="text-xs text-gray-500 underline active:text-gray-900"
                 >
-                  ログイン
+                  ログアウト
                 </button>
-              )}
-            </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setScreen('login')}
+                className="text-xs text-gray-500 underline active:text-gray-900"
+              >
+                ログイン
+              </button>
+            )}
           </div>
         </header>
 
@@ -267,6 +288,14 @@ function App() {
           </p>
         </footer>
       </div>
+
+      <BottomTabBar
+        value={tab}
+        onChange={(next) => {
+          setTab(next)
+          setScreen('main')
+        }}
+      />
     </div>
   )
 }
