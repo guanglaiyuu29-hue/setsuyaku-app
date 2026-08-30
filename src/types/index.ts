@@ -17,6 +17,10 @@ export interface Store {
   bikeMinutes: number
   /** 補足メモ（例: "レジ袋は有料"）。無ければ空文字 "" でOK */
   note: string
+  /** 地図表示用の緯度。未登録なら null */
+  lat: number | null
+  /** 地図表示用の経度。未登録なら null */
+  lng: number | null
 }
 
 /**

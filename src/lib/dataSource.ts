@@ -20,6 +20,9 @@ type StoreRow = {
   walk_minutes: number
   bike_minutes: number
   note: string | null
+  // 緯度経度は add_store_coords.sql 実行後にだけ存在する列。未実行なら undefined。
+  lat?: number | null
+  lng?: number | null
 }
 
 type PriceRow = {
@@ -40,6 +43,8 @@ function toStore(row: StoreRow): Store {
     walkMinutes: row.walk_minutes,
     bikeMinutes: row.bike_minutes,
     note: row.note ?? '',
+    lat: typeof row.lat === 'number' ? row.lat : null,
+    lng: typeof row.lng === 'number' ? row.lng : null,
   }
 }
 
@@ -62,10 +67,9 @@ function toPrice(row: PriceRow): Price {
 
 /** 店舗一覧をすべて返す */
 export async function getStores(): Promise<Store[]> {
-  const { data, error } = await supabase
-    .from('stores')
-    .select('id, name, walk_minutes, bike_minutes, note')
-    .order('id')
+  // select('*') にしておくと、緯度経度カラム（add_store_coords.sql）が
+  // 未追加でもエラーにならず、追加後は自動で lat/lng も取れる。
+  const { data, error } = await supabase.from('stores').select('*').order('id')
 
   if (error) {
     console.warn('店舗データの取得に失敗しました:', error.message)

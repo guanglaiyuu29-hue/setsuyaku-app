@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { AuthScreen } from './components/AuthScreen'
 import { BottomTabBar, type TabKey } from './components/BottomTabBar'
 import { ItemNameList } from './components/ItemNameList'
+import { MapView } from './components/MapView'
 import { PriceComparison } from './components/PriceComparison'
 import { ReceiptForm } from './components/ReceiptForm'
 import type { SubmittedSummary } from './components/ReceiptForm'
@@ -239,7 +240,7 @@ function App() {
     }
 
     // screen === 'main' → 下部タブに応じて切り替え
-    if (tab === 'map') return <ComingSoon title="マップ" />
+    if (tab === 'map') return <MapView stores={stores} />
     if (tab === 'graph') return <ComingSoon title="グラフ" />
     return renderMainSearch()
   }
