@@ -198,6 +198,27 @@ export type SubmitReceiptResult = { ok: true } | { ok: false; message: string }
  *   2. 商品ごとに prices テーブルへ1行ずつ追加（source: 'receipt'）
  * 途中で失敗したら、アップロード済みの画像を削除してエラー内容を返す。
  */
+/** Supabase の英語エラーを、投稿者向けの日本語メッセージに言い換える */
+function toReceiptErrorMessage(raw: string): string {
+  const text = raw.toLowerCase()
+  if (text.includes('row-level security') || text.includes('violates row-level')) {
+    return '保存の権限がありませんでした。一度ログアウトして入り直してから、もう一度お試しください。'
+  }
+  if (text.includes('bucket not found')) {
+    return '画像の保存先（receipts バケット）が未作成です。README の Supabase セットアップ手順を実行してください。'
+  }
+  if (text.includes('payload too large') || text.includes('maximum allowed size')) {
+    return '画像のサイズが大きすぎます（10MB まで）。'
+  }
+  if (text.includes('mime type') || text.includes('not supported')) {
+    return 'この画像形式は保存できません。JPEG か PNG の写真を選んでください。'
+  }
+  if (text.includes('failed to fetch') || text.includes('network')) {
+    return '通信に失敗しました。電波の良い場所でもう一度お試しください。'
+  }
+  return `保存に失敗しました：${raw}`
+}
+
 export async function submitReceipt(
   input: SubmitReceiptInput,
 ): Promise<SubmitReceiptResult> {
@@ -216,10 +237,7 @@ export async function submitReceipt(
     .upload(imagePath, image, { contentType: image.type || undefined })
 
   if (uploadError) {
-    return {
-      ok: false,
-      message: `画像のアップロードに失敗しました: ${uploadError.message}`,
-    }
+    return { ok: false, message: toReceiptErrorMessage(uploadError.message) }
   }
 
   // 2. prices へ商品ごとに1行ずつ追加
@@ -239,10 +257,7 @@ export async function submitReceipt(
   if (insertError) {
     // 後始末：アップロードした画像を消しておく
     await supabase.storage.from('receipts').remove([imagePath])
-    return {
-      ok: false,
-      message: `価格の保存に失敗しました: ${insertError.message}`,
-    }
+    return { ok: false, message: toReceiptErrorMessage(insertError.message) }
   }
 
   return { ok: true }

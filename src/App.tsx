@@ -60,6 +60,28 @@ function App() {
   // 初期データ（参考価格）
   const [referencePrices, setReferencePrices] = useState<ReferencePrice[]>([])
   const [lastReceipt, setLastReceipt] = useState<SubmittedSummary | null>(null)
+  // ログイン後に戻りたい画面（例: 「レシートを投稿」からログインに来たとき）
+  const [afterLogin, setAfterLogin] = useState<Screen | null>(null)
+
+  /** レシート投稿へ。未ログインならログインをはさみ、ログイン後に戻す。 */
+  function goToReceipt() {
+    if (user) {
+      setScreen('receipt')
+    } else {
+      setAfterLogin('receipt')
+      setScreen('login')
+    }
+  }
+
+  function handleAuthSuccess() {
+    setScreen(afterLogin ?? 'main')
+    setAfterLogin(null)
+  }
+
+  function leaveAuth() {
+    setScreen('main')
+    setAfterLogin(null)
+  }
 
   useEffect(() => {
     getAllItemNames().then(setItemNames)
@@ -161,7 +183,7 @@ function App() {
           </p>
           <button
             type="button"
-            onClick={() => setScreen(user ? 'receipt' : 'login')}
+            onClick={goToReceipt}
             className="mt-3 w-full rounded-xl bg-gray-900 py-3 text-base font-bold text-white active:bg-gray-700"
           >
             レシートを投稿
@@ -182,8 +204,8 @@ function App() {
         <AuthScreen
           mode={screen}
           onModeChange={(nextMode) => setScreen(nextMode)}
-          onSuccess={() => setScreen('main')}
-          onCancel={() => setScreen('main')}
+          onSuccess={handleAuthSuccess}
+          onCancel={leaveAuth}
         />
       )
     }
@@ -198,7 +220,10 @@ function App() {
             </p>
             <button
               type="button"
-              onClick={() => setScreen('login')}
+              onClick={() => {
+                setAfterLogin('receipt')
+                setScreen('login')
+              }}
               className="mt-4 w-full rounded-xl bg-gray-900 py-3 text-base font-bold text-white active:bg-gray-700"
             >
               ログイン画面へ
