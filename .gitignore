@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# 環境変数ファイル（Supabase のキーなどの秘密情報。絶対にコミットしない）
+.env
+.env.local
+.env.*.local
+# ただし「見本」ファイルだけはコミットする
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

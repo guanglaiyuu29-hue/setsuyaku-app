@@ -1,0 +1,22 @@
+# ============================================================
+# Netlify の公開設定。
+# GitHub リポジトリと Netlify を連携している場合、Netlify はこのファイルを
+# 自動で読み込んでビルド方法を決めます。
+# ============================================================
+
+[build]
+  # ビルドコマンド（package.json の "build" スクリプト）
+  command = "npm run build"
+  # 公開するフォルダ（Vite の出力先）
+  publish = "dist"
+
+[build.environment]
+  # Vite 8 は新しめの Node を要求するため、バージョンを固定する
+  NODE_VERSION = "22"
+
+# 1ページ完結アプリ（SPA）用の設定。
+# どんな URL でアクセスされても index.html を返す（404 で真っ白になるのを防ぐ）。
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

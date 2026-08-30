@@ -1,47 +1,78 @@
 // アプリの中心画面。
-// ここでは「今なにを検索しているか（query）」と「食材名・店舗の一覧」を持ち、
-// 状態に応じて表示する部品を切り替えるだけ。
-// データの取得はすべて src/lib/dataSource.ts 経由（App から src/data を直接見ない）。
+// ここでは「今なにを検索しているか（query）」「食材名・店舗の一覧」
+// 「今どの画面を出しているか（screen）」を持ち、状態に応じて表示を切り替える。
+// データ取得は src/lib/dataSource.ts、ログインまわりは src/lib/auth.ts 経由。
 
 import { useEffect, useState } from 'react'
+import { AuthScreen } from './components/AuthScreen'
 import { ItemNameList } from './components/ItemNameList'
 import { PriceComparison } from './components/PriceComparison'
+import { ReceiptForm } from './components/ReceiptForm'
+import type { SubmittedSummary } from './components/ReceiptForm'
+import { ReceiptThanks } from './components/ReceiptThanks'
 import { SearchBox } from './components/SearchBox'
-import { getAllItemNames, getStores } from './lib/dataSource'
+import { useAuth } from './context/auth-context'
+import { signOut } from './lib/auth'
+import {
+  getAllItemNames,
+  getKnownItems,
+  getStores,
+  type KnownItem,
+} from './lib/dataSource'
 import type { Store } from './types'
 
+// 表示する画面の種類。
+// 'main' = 価格比較（ログインしていなくても見られる）
+type Screen = 'main' | 'login' | 'signup' | 'receipt' | 'receipt-done'
+
 function App() {
-  // 検索ボックスの入力文字
+  // ログイン状態（アプリ全体で共有。AuthProvider が管理）
+  const { user, loading: authLoading } = useAuth()
+
+  const [screen, setScreen] = useState<Screen>('main')
   const [query, setQuery] = useState('')
-  // 登録されている食材名の一覧
   const [itemNames, setItemNames] = useState<string[]>([])
-  // 店舗の一覧
   const [stores, setStores] = useState<Store[]>([])
+  const [knownItems, setKnownItems] = useState<KnownItem[]>([])
+  const [lastReceipt, setLastReceipt] = useState<SubmittedSummary | null>(null)
 
   // 画面を最初に開いたとき、一覧データを読み込む
   useEffect(() => {
     getAllItemNames().then(setItemNames)
     getStores().then(setStores)
+    getKnownItems().then(setKnownItems)
   }, [])
 
   const keyword = query.trim()
-  // 入力とちょうど一致する食材（あればその価格比較を表示）
   const exactItem = itemNames.find((name) => name === keyword)
-  // 入力を含む食材（例: "肉" → 鶏むね肉 / 豚こま肉）
   const relatedItems = itemNames.filter(
     (name) => name !== keyword && name.includes(keyword),
   )
 
-  return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="mx-auto min-h-screen max-w-md bg-white px-4 pb-16 text-gray-900">
-        <header className="py-5">
-          <h1 className="text-xl font-bold">食材価格くらべ</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            京都・一人暮らしの食材価格メモ（ベータ版）
-          </p>
-        </header>
+  async function handleLogout() {
+    await signOut()
+  }
 
+  async function handleReceiptSubmitted(summary: SubmittedSummary) {
+    setLastReceipt(summary)
+    // 新しく増えた商品名・価格を一覧に反映させる
+    const [names, known] = await Promise.all([
+      getAllItemNames(),
+      getKnownItems(),
+    ])
+    setItemNames(names)
+    setKnownItems(known)
+    setScreen('receipt-done')
+  }
+
+  function goToItem(itemName: string) {
+    setQuery(itemName)
+    setScreen('main')
+  }
+
+  function renderMainSearch() {
+    return (
+      <>
         <SearchBox value={query} onChange={setQuery} />
 
         <div className="mt-6">
@@ -80,6 +111,133 @@ function App() {
             </div>
           )}
         </div>
+
+        {/* レシート投稿への入口 */}
+        <div className="mt-8 rounded-xl border border-gray-200 p-4">
+          <p className="text-sm font-medium">お店で見た価格を教えてください</p>
+          <p className="mt-1 text-xs text-gray-500">
+            レシートを投稿すると、みんなの価格情報が新しくなります。
+          </p>
+          <button
+            type="button"
+            onClick={() => setScreen(user ? 'receipt' : 'login')}
+            className="mt-3 w-full rounded-xl bg-gray-900 py-3 text-base font-bold text-white active:bg-gray-700"
+          >
+            レシートを投稿
+          </button>
+          {!user && (
+            <p className="mt-2 text-xs text-gray-400">
+              ※投稿にはログインが必要です
+            </p>
+          )}
+        </div>
+      </>
+    )
+  }
+
+  function renderBody() {
+    if (screen === 'login' || screen === 'signup') {
+      return (
+        <AuthScreen
+          mode={screen}
+          onModeChange={(nextMode) => setScreen(nextMode)}
+          onSuccess={() => setScreen('main')}
+          onCancel={() => setScreen('main')}
+        />
+      )
+    }
+
+    if (screen === 'receipt') {
+      if (!user) {
+        return (
+          <div className="mt-6 rounded-xl bg-gray-50 p-6 text-center">
+            <p className="text-lg font-semibold">投稿にはログインが必要です</p>
+            <p className="mt-2 text-sm text-gray-500">
+              ログインすると、レシートから価格を登録できます。
+            </p>
+            <button
+              type="button"
+              onClick={() => setScreen('login')}
+              className="mt-4 w-full rounded-xl bg-gray-900 py-3 text-base font-bold text-white active:bg-gray-700"
+            >
+              ログイン画面へ
+            </button>
+            <button
+              type="button"
+              onClick={() => setScreen('main')}
+              className="mt-2 w-full py-2 text-sm text-gray-500 underline active:text-gray-900"
+            >
+              戻る
+            </button>
+          </div>
+        )
+      }
+      return (
+        <ReceiptForm
+          userId={user.id}
+          stores={stores}
+          knownItems={knownItems}
+          onCancel={() => setScreen('main')}
+          onSubmitted={handleReceiptSubmitted}
+        />
+      )
+    }
+
+    if (screen === 'receipt-done' && lastReceipt) {
+      return (
+        <ReceiptThanks
+          summary={lastReceipt}
+          onViewItem={goToItem}
+          onPostAnother={() => setScreen('receipt')}
+          onHome={() => setScreen('main')}
+        />
+      )
+    }
+
+    return renderMainSearch()
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <div className="mx-auto min-h-screen max-w-md bg-white px-4 pb-16 text-gray-900">
+        <header className="py-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-bold">食材価格くらべ</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                京都・一人暮らしの食材価格メモ（ベータ版）
+              </p>
+            </div>
+
+            {/* アカウント欄：目立たないよう小さく右上に置く */}
+            <div className="shrink-0 pt-1 text-right">
+              {authLoading ? null : user ? (
+                <>
+                  <p className="max-w-[128px] truncate text-xs text-gray-400">
+                    {user.email}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="text-xs text-gray-500 underline active:text-gray-900"
+                  >
+                    ログアウト
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setScreen('login')}
+                  className="text-xs text-gray-500 underline active:text-gray-900"
+                >
+                  ログイン
+                </button>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {renderBody()}
 
         <footer className="mt-10 border-t border-gray-100 pt-4">
           <p className="text-xs leading-relaxed text-gray-400">
