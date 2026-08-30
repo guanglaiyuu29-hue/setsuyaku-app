@@ -1,5 +1,5 @@
 // アプリの中心画面。
-// ここでは「今なにを検索しているか（query）」「食材名・店舗の一覧」
+// 「今なにを検索しているか（query）」「食材名・店舗・参考価格の一覧」
 // 「今どの画面を出しているか（screen）」を持ち、状態に応じて表示を切り替える。
 // データ取得は src/lib/dataSource.ts、ログインまわりは src/lib/auth.ts 経由。
 
@@ -10,20 +10,28 @@ import { PriceComparison } from './components/PriceComparison'
 import { ReceiptForm } from './components/ReceiptForm'
 import type { SubmittedSummary } from './components/ReceiptForm'
 import { ReceiptThanks } from './components/ReceiptThanks'
+import { ReferencePriceList } from './components/ReferencePriceList'
 import { SearchBox } from './components/SearchBox'
 import { useAuth } from './context/auth-context'
 import { signOut } from './lib/auth'
 import {
   getAllItemNames,
   getKnownItems,
+  getReferencePrices,
   getStores,
   type KnownItem,
+  type ReferencePrice,
 } from './lib/dataSource'
 import type { Store } from './types'
 
 // 表示する画面の種類。
-// 'main' = 価格比較（ログインしていなくても見られる）
+// 'main' = 価格くらべ（ログインしていなくても見られる）
 type Screen = 'main' | 'login' | 'signup' | 'receipt' | 'receipt-done'
+
+/** 重複を除いて順序を保つ */
+function unique(values: string[]): string[] {
+  return [...new Set(values)]
+}
 
 function App() {
   // ログイン状態（アプリ全体で共有。AuthProvider が管理）
@@ -31,21 +39,34 @@ function App() {
 
   const [screen, setScreen] = useState<Screen>('main')
   const [query, setQuery] = useState('')
+  // prices テーブルに実売価格がある食材名
   const [itemNames, setItemNames] = useState<string[]>([])
   const [stores, setStores] = useState<Store[]>([])
   const [knownItems, setKnownItems] = useState<KnownItem[]>([])
+  // 初期データ（参考価格）
+  const [referencePrices, setReferencePrices] = useState<ReferencePrice[]>([])
   const [lastReceipt, setLastReceipt] = useState<SubmittedSummary | null>(null)
 
-  // 画面を最初に開いたとき、一覧データを読み込む
   useEffect(() => {
     getAllItemNames().then(setItemNames)
     getStores().then(setStores)
     getKnownItems().then(setKnownItems)
+    getReferencePrices().then(setReferencePrices)
   }, [])
 
+  // 食材名 → 参考価格 の対応表
+  const referenceByName = new Map(
+    referencePrices.map((item) => [item.itemName, item]),
+  )
+  // 検索対象になる食材名（参考価格の食材 ＋ 実売価格がある食材）
+  const allItemNames = unique([
+    ...referencePrices.map((item) => item.itemName),
+    ...itemNames,
+  ])
+
   const keyword = query.trim()
-  const exactItem = itemNames.find((name) => name === keyword)
-  const relatedItems = itemNames.filter(
+  const exactItem = allItemNames.find((name) => name === keyword)
+  const relatedItems = allItemNames.filter(
     (name) => name !== keyword && name.includes(keyword),
   )
 
@@ -76,18 +97,18 @@ function App() {
         <SearchBox value={query} onChange={setQuery} />
 
         <div className="mt-6">
-          {/* 1. 入力が空 → 登録食材の一覧をボタンで表示 */}
+          {/* 1. 入力が空 → 参考価格の一覧を表示 */}
           {keyword === '' && (
-            <ItemNameList
-              title="登録されている食材"
-              itemNames={itemNames}
-              onSelect={setQuery}
-            />
+            <ReferencePriceList items={referencePrices} onSelect={setQuery} />
           )}
 
-          {/* 2. 入力と一致する食材がある → 価格比較を表示 */}
+          {/* 2. 入力と一致する食材がある → 価格くらべを表示 */}
           {keyword !== '' && exactItem && (
-            <PriceComparison itemName={exactItem} stores={stores} />
+            <PriceComparison
+              itemName={exactItem}
+              stores={stores}
+              referencePrice={referenceByName.get(exactItem) ?? null}
+            />
           )}
 
           {/* 3. 一致はしないが、近い食材がある → 候補ボタンを表示 */}
@@ -242,6 +263,7 @@ function App() {
         <footer className="mt-10 border-t border-gray-100 pt-4">
           <p className="text-xs leading-relaxed text-gray-400">
             ※価格は調査時点のものです。実際の店頭価格と異なる場合があります。
+            初期データの参考価格には全国平均を含みます（各食材に地域を表示）。
           </p>
         </footer>
       </div>

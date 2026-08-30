@@ -227,3 +227,85 @@ export async function submitReceipt(
 
   return { ok: true }
 }
+
+// ============================================================
+// 参考価格（初期データ。reference_prices テーブル）
+//   ・店舗別の実売価格（prices）とは別物。「概算・参考価格」として表示する。
+//   ・price_status で確度を区別する。
+// ============================================================
+
+/**
+ * 参考価格の確度。
+ *   confirmed    … 公的統計そのもの／単純な単位換算
+ *   estimated    … 近い品目や民間調査から妥当と判断した概算
+ *   needs_review … 十分な根拠がなく、価格を表示しない（「価格確認中」と出す）
+ */
+export type ReferencePriceStatus = 'confirmed' | 'estimated' | 'needs_review'
+
+export type ReferencePrice = {
+  itemName: string
+  category: string
+  unit: string
+  /** 参考価格（円）。needs_review のときは null */
+  referencePrice: number | null
+  priceStatus: ReferencePriceStatus
+  /** "全国" / "近畿" / "京都市" など。不明なら null */
+  region: string | null
+  /** "2026年7月" など */
+  surveyDate: string | null
+  sourceName: string | null
+  sourceUrl: string | null
+  note: string | null
+}
+
+type ReferenceRow = {
+  item_name: string
+  category: string
+  unit: string
+  reference_price: number | null
+  price_status: string
+  region: string | null
+  survey_date: string | null
+  source_name: string | null
+  source_url: string | null
+  note: string | null
+}
+
+function toReferencePriceStatus(raw: string): ReferencePriceStatus {
+  if (raw === 'confirmed' || raw === 'estimated') return raw
+  return 'needs_review'
+}
+
+/**
+ * 参考価格の一覧を返す（分類→食材名の順）。
+ * reference_prices テーブルが無い場合は空配列を返す（アプリは落とさない）。
+ */
+export async function getReferencePrices(): Promise<ReferencePrice[]> {
+  const { data, error } = await supabase
+    .from('reference_prices')
+    .select(
+      'item_name, category, unit, reference_price, price_status, region, survey_date, source_name, source_url, note',
+    )
+    .order('category')
+    .order('item_name')
+
+  if (error) {
+    // テーブル未作成などでも画面を止めない
+    console.warn('参考価格の取得に失敗しました:', error.message)
+    return []
+  }
+
+  const rows = (data as ReferenceRow[] | null) ?? []
+  return rows.map((row) => ({
+    itemName: row.item_name,
+    category: row.category,
+    unit: row.unit,
+    referencePrice: row.reference_price,
+    priceStatus: toReferencePriceStatus(row.price_status),
+    region: row.region,
+    surveyDate: row.survey_date,
+    sourceName: row.source_name,
+    sourceUrl: row.source_url,
+    note: row.note,
+  }))
+}

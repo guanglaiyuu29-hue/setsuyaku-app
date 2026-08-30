@@ -2,7 +2,7 @@
 // 確認から日数がたった価格（isStale）は、最新の価格と見分けられるよう
 // グレーアウトし、「情報が古い可能性」の注意を出す。
 
-import type { Store } from '../types'
+import type { PriceSource, Store } from '../types'
 
 type Props = {
   /** 店舗情報 */
@@ -19,6 +19,8 @@ type Props = {
   checkedLabel: string
   /** 確認から日数がたち「古い可能性あり」か */
   isStale: boolean
+  /** 価格の出所（'receipt' なら利用者のレシート投稿） */
+  source?: PriceSource
 }
 
 export function StorePriceCard({
@@ -29,6 +31,7 @@ export function StorePriceCard({
   isCheapest,
   checkedLabel,
   isStale,
+  source,
 }: Props) {
   return (
     <li
@@ -55,6 +58,11 @@ export function StorePriceCard({
                 }`}
               >
                 最安
+              </span>
+            )}
+            {source === 'receipt' && (
+              <span className="rounded-full border border-gray-300 px-2 py-0.5 text-xs text-gray-500">
+                レシート投稿
               </span>
             )}
           </div>
